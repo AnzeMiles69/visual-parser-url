@@ -11,7 +11,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/AnzeMiles69/visual-parser.git"
+    "url": "https://github.com/AnzeMiles69/visual-parser-url.git"
   },
   "engines": {
     "vscode": "^1.85.0"
@@ -285,7 +285,7 @@
     "watch": "tsc -watch -p ./",
     "lint": "tsc -p ./ --noEmit",
     "package": "vsce package --allow-missing-repository",
-    "install-local": "npm run compile && vsce package --allow-missing-repository && code --install-extension visual-parser-0.1.0.vsix --force"
+    "install-local": "npm run compile && vsce package --allow-missing-repository && node scripts/install-local.js"
   },
   "dependencies": {
     "playwright": "^1.49.0"

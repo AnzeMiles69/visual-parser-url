@@ -11,3 +11,5 @@ playwright/.auth/**
 *.vsix
 pages/**
 components/**
+scripts/smoke-names.js
+scripts/install-local.js

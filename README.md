@@ -1,28 +1,65 @@
 # Visual Parser
 
-VS Code extension for QA: **auto-scan UI** with Playwright and generate locators / Page Objects **without hovering** elements (unlike Playwright Codegen).
+<p align="center">
+  <img src="media/icon.svg" alt="Visual Parser" width="72" height="72">
+</p>
 
-[Русский](#русский) · [English](#english)
+<p align="center">
+  <strong>Сканируй живую страницу → получи локаторы и Page Object</strong><br>
+  без наведения мышкой, как в Playwright Codegen
+</p>
+
+<p align="center">
+  <a href="#-быстрый-старт">Русский</a> ·
+  <a href="#-quick-start">English</a>
+  &nbsp;·&nbsp;
+  <code>VS Code</code> / <code>Cursor</code>
+  &nbsp;·&nbsp;
+  <a href="LICENSE">MIT</a>
+</p>
 
 ---
 
-## Русский
+## Зачем это нужно
 
-### Возможности
+Playwright Codegen заставляет кликать по каждому элементу.  
+**Visual Parser** открывает браузер, сам обходит UI и собирает каталог локаторов + Page Object.
 
-- Скан URL в живом браузере (Chromium / Firefox / WebKit)
-- Каталог элементов в Side Bar + webview со скриншотом и подсветкой
-- Лучший локатор: `data-name` / `testid` → `role` → `label` → `text` → `CSS` (**XPath запрещён**)
-- Поддержка Ant Design Select, icon-кнопок (`description`, `data-name`, `aria-label` у иконки)
-- Дедуп: один элемент на `data-name` (не копия на каждую строку таблицы)
-- Вставка / копирование локатора
-- Генерация Page Object (`pages/*.page.ts`)
-- Логин через `.env` → `storageState`
-- Язык интерфейса: RU / EN
+| | Codegen | Visual Parser |
+|--|---------|---------------|
+| Как собираешь локаторы | Клики / hover вручную | Автоскан страницы |
+| Каталог элементов | Нет | Side Bar + скриншот |
+| Page Object | Пишешь сам | Генерируется (`readonly` поля) |
+| XPath | Можно | Запрещён |
 
-### Установка в текущий VS Code (без второго окна)
+**Приоритет локаторов:**  
+`data-name` / `testid` → `role` → `label` → `text` → `CSS`
 
-F5 открывает отдельное окно только для **разработки** расширений. Для обычной работы:
+---
+
+## Как это выглядит в работе
+
+```text
+1. Открыть браузер          →  вставить URL
+2. Автоскан                 →  каталог слева + подсветка на скрине
+3. Copy / Insert / POM      →  локаторы в коде и pages/*.page.ts
+```
+
+В тесте используешь поля напрямую:
+
+```ts
+const pom = new LoginPage(page);
+
+await pom.signInButton.click();
+await pom.emailInput.fill('qa@example.com');
+await expect(pom.signInButton).toBeVisible();
+```
+
+---
+
+## Быстрый старт
+
+### 1. Установка
 
 ```bash
 npm install
@@ -30,128 +67,188 @@ npx playwright install
 npm run install-local
 ```
 
+Скрипт ставит расширение и в **Cursor**, и в **VS Code**.
+
 Затем: `Ctrl+Shift+P` → **Developer: Reload Window**.
 
-### Как пользоваться
+> F5 нужен только для разработки самого расширения.  
+> Для ежедневной работы — `install-local` + Reload.
 
-1. Слева иконка **Visual Parser** или команда **Open browser / Открыть браузер**
+### 2. Первый скан
+
+1. Слева иконка **Visual Parser** (или команда **Open browser**)
 2. Вставь URL в адресную строку браузера → Enter
-3. Плагин сам сканирует страницу, показывает каталог и (по настройке) генерирует Page Object
+3. Плагин сканирует страницу и показывает каталог
+4. При необходимости: **Generate Page Object**
 
 Статус внизу слева: `Visual Parser: …`
 
-После правок кода снова:
+После правок кода расширения снова: `npm run install-local` → Reload Window.
 
-```bash
-npm run install-local
-```
+---
 
-и **Reload Window**. Не используй F5 для ежедневной работы.
+## Каталог элементов
 
-### Язык интерфейса
+После скана слева — список найденных элементов:
 
-`Settings → Visual Parser → UI language`:
+- название и роль (`button`, `link`, …)
+- готовый локатор Playwright
+- подсказка, если локатор хрупкий (завязан на текст)
+- **Copy** / **Insert** — в буфер или в открытый файл
+- клик по строке — подсветка на скриншоте
 
-| Значение | Описание |
-|----------|----------|
-| `auto` | Как язык VS Code |
-| `ru` | Русский |
-| `en` | English |
+Это «меню» локаторов. Page Object собирается из тех же элементов.
 
-Или команда **Visual Parser: Set UI language / Выбрать язык интерфейса**.
+---
 
-### Команды
+## Page Object
 
-| Команда | Хоткей |
-|---------|--------|
-| Открыть браузер (жду URL) | — |
+Генерируется в `pages/*.page.ts`:
+
+- только `readonly` локаторы (без авто-`clickXxx()`)
+- короткие понятные имена (`followButton`, `avatarLink`, …)
+- в тесте: `await pom.signInButton.click()` / `.fill()` / `expect(...)`
+
+---
+
+## Команды и хоткеи
+
+| Действие | Команда / хоткей |
+|----------|------------------|
+| Открыть браузер | Visual Parser: Open browser |
 | Сканировать URL | `Ctrl+Alt+S` |
 | Обновить скан | `Ctrl+Alt+R` |
-| Вставить лучший локатор | `Ctrl+Alt+I` |
-| Копировать локатор | — |
-| Сгенерировать Page Object | — |
-| Подключиться к реальному Chrome (обход 403) | — |
-| Войти и сохранить storageState | — |
-| Открыть панель | — |
-| Выбрать язык интерфейса | — |
+| Вставить локатор | `Ctrl+Alt+I` |
+| Копировать локатор | Visual Parser: Copy locator |
+| Сгенерировать POM | Visual Parser: Generate Page Object |
+| Реальный Chrome (обход 403) | Visual Parser: Connect to real Chrome |
+| Логин → storageState | Visual Parser: Login and save storageState |
+| Язык UI | Visual Parser: Set UI language |
 
-### Настройки
+---
 
-`Settings → Visual Parser`:
+## Настройки
 
-| Настройка | Описание |
-|-----------|----------|
-| `uiLanguage` | Язык UI: `auto` / `ru` / `en` |
+`Settings → Extensions → Visual Parser`
+
+| Настройка | Зачем |
+|-----------|--------|
+| `uiLanguage` | `auto` / `ru` / `en` |
 | `defaultBrowser` | `chromium` / `firefox` / `webkit` |
-| `useSystemChrome` | Системный Google Chrome (меньше блокировок WAF) |
-| `cdpEndpoint` | Например `http://127.0.0.1:9222` — подключение к уже открытому Chrome |
-| `autoStartSession` | Сразу открывать браузер при старте VS Code |
-| `autoGeneratePageObject` | Автогенерация POM после скана |
-| `envFile` | Путь к `.env` |
-| `storageStatePath` | Путь к Playwright auth state |
-| `pagesDir` | Папка Page Objects |
+| `useSystemChrome` | Системный Chrome — меньше блокировок WAF (по умолчанию вкл.) |
+| `cdpEndpoint` | Подключение к уже открытому Chrome, напр. `http://127.0.0.1:9222` |
+| `autoGeneratePageObject` | Авто-POM после скана |
+| `pagesDir` | Папка для Page Objects |
 | `preferTestId` | Предпочитать `data-testid` |
+| `envFile` / `storageStatePath` | Пути к `.env` и auth state |
 | `interactiveOnly` / `visibleOnly` | Фильтры каталога |
 
-### Авторизация
+---
 
-1. Скопируй `.env.example` → `.env`, заполни `USER_EMAIL`, `USER_PASSWORD`, `LOGIN_URL`
-2. При необходимости поправь селекторы логина в настройках
-3. Команда **Login and save storageState**
-4. Дальнейшие сканы подхватят `playwright/.auth/user.json`
+## Авторизация на сайте
 
-### Если сайт отвечает 403
+1. Скопируй `.env.example` → `.env`
+2. Заполни `USER_EMAIL`, `USER_PASSWORD`, `LOGIN_URL`
+3. При необходимости поправь селекторы логина в настройках
+4. Команда **Login and save storageState**
+5. Дальше сканы используют `playwright/.auth/user.json`
 
-WAF часто режет Playwright. Варианты:
+---
 
-1. Включи `useSystemChrome` (по умолчанию уже `true`)
-2. Команда **Connect to real Chrome** или `scripts/open-chrome-debug.bat`, затем `cdpEndpoint = http://127.0.0.1:9222`
+## Сайт отдаёт 403
+
+WAF часто режет автоматизацию. Попробуй по порядку:
+
+1. Оставь `useSystemChrome = true` (уже по умолчанию)
+2. **Connect to real Chrome** или `scripts/open-chrome-debug.bat`, затем  
+   `cdpEndpoint = http://127.0.0.1:9222`
 3. Если 403 и в обычном Chrome — блок по IP/сети (VPN / другая сеть)
 
-### Структура проекта
+---
+
+## Структура репозитория
 
 ```text
 src/
-  extension.ts     # команды и активация
-  i18n/            # RU / EN строки
-  scanner/         # Playwright скан + ранжирование локаторов
-  generator/       # генерация Page Object
-  providers/       # Tree View каталога
-  webview/         # панель со скриншотом
-  config/          # настройки и .env
-pages/             # сгенерированные Page Objects
+  extension.ts      команды и активация
+  scanner/          Playwright-скан и ранжирование локаторов
+  generator/        генерация Page Object
+  providers/        дерево каталога
+  webview/          скриншот и подсветка
+  i18n/             RU / EN
+  config/           настройки и .env
+pages/              сгенерированные POM (в git не коммитятся)
+scripts/            install-local, open-chrome-debug
 ```
 
-### Что дальше
+---
+
+## Roadmap
 
 - Crawl разделов сайта
 - Умный merge существующих POM
 - Recorder → `test.step`
 - CLI-проверка локаторов в CI
 
-### Лицензия
+---
 
-MIT — см. [LICENSE](LICENSE).
+## Лицензия
+
+[MIT](LICENSE) © [AnzeMiles69](https://github.com/AnzeMiles69)
+
+Репозиторий: [visual-parser-url](https://github.com/AnzeMiles69/visual-parser-url)
 
 ---
 
-## English
+<br>
 
-### Features
+# English
 
-- Live URL scan (Chromium / Firefox / WebKit)
-- Element catalog in the Side Bar + webview with screenshot highlight
-- Best locator strategy: `data-name` / `testid` → `role` → `label` → `text` → `CSS` (**XPath forbidden**)
-- Ant Design Select support, icon-only buttons (`description`, `data-name`, nested `aria-label`)
-- Dedup: one catalog entry per `data-name` (not one per table row)
-- Copy / insert locator
-- Page Object generation (`pages/*.page.ts`)
-- Auth via `.env` → `storageState`
-- UI language: RU / EN
+<p align="center">
+  <strong>Scan a live page → get locators and a Page Object</strong><br>
+  without hover/click recording like Playwright Codegen
+</p>
 
-### Install into current VS Code (no second window)
+---
 
-F5 opens a separate Extension Host window — that is only for **extension development**. For daily use:
+## Why Visual Parser
+
+Playwright Codegen makes you click every element.  
+**Visual Parser** opens a browser, scans the UI, and builds a locator catalog + Page Object for you.
+
+| | Codegen | Visual Parser |
+|--|---------|---------------|
+| Collect locators | Manual clicks / hover | Auto page scan |
+| Element catalog | No | Side Bar + screenshot |
+| Page Object | Hand-written | Generated (`readonly` fields) |
+| XPath | Allowed | Banned |
+
+**Locator priority:**  
+`data-name` / `testid` → `role` → `label` → `text` → `CSS`
+
+---
+
+## Flow
+
+```text
+1. Open browser             →  paste URL
+2. Auto-scan                →  catalog + screenshot highlight
+3. Copy / Insert / POM      →  locators in code & pages/*.page.ts
+```
+
+```ts
+const pom = new LoginPage(page);
+
+await pom.signInButton.click();
+await pom.emailInput.fill('qa@example.com');
+await expect(pom.signInButton).toBeVisible();
+```
+
+---
+
+## Quick start
+
+### 1. Install
 
 ```bash
 npm install
@@ -159,105 +256,133 @@ npx playwright install
 npm run install-local
 ```
 
+Installs into both **Cursor** and **VS Code**.
+
 Then: `Ctrl+Shift+P` → **Developer: Reload Window**.
 
-### How to use
+> F5 is only for developing the extension itself.  
+> Day-to-day: `install-local` + Reload.
 
-1. Click the **Visual Parser** icon on the left, or run **Open browser (wait for URL)**
-2. Paste a URL into the browser address bar → Enter
-3. The extension scans the page, shows the catalog, and (if enabled) generates a Page Object
+### 2. First scan
 
-Status bar (bottom-left): `Visual Parser: …`
+1. Click **Visual Parser** in the activity bar (or **Open browser**)
+2. Paste a URL → Enter
+3. The extension scans and fills the catalog
+4. Optionally: **Generate Page Object**
 
-After code changes, run again:
+Status bar: `Visual Parser: …`
 
-```bash
-npm run install-local
-```
+After extension code changes: `npm run install-local` → Reload Window.
 
-and **Reload Window**. Do not use F5 for everyday work.
+---
 
-### UI language
+## Element catalog
 
-`Settings → Visual Parser → UI language`:
+After a scan, the Side Bar lists discovered elements:
 
-| Value | Meaning |
-|-------|---------|
-| `auto` | Follow VS Code language |
-| `ru` | Russian |
-| `en` | English |
+- label + role
+- ready Playwright locator
+- warning when the locator is text-fragile
+- **Copy** / **Insert**
+- click a row to highlight it on the screenshot
 
-Or run **Visual Parser: Set UI language**.
+Same elements feed Page Object generation.
 
-### Commands
+---
 
-| Command | Shortcut |
-|---------|----------|
-| Open browser (wait for URL) | — |
+## Page Objects
+
+Written to `pages/*.page.ts`:
+
+- `readonly` locators only (no auto-`clickXxx()` wrappers)
+- short field names (`followButton`, `avatarLink`, …)
+- in tests: `await pom.signInButton.click()` / `.fill()` / `expect(...)`
+
+---
+
+## Commands & shortcuts
+
+| Action | Command / shortcut |
+|--------|--------------------|
+| Open browser | Visual Parser: Open browser |
 | Scan URL | `Ctrl+Alt+S` |
-| Refresh scan | `Ctrl+Alt+R` |
-| Insert best locator | `Ctrl+Alt+I` |
-| Copy locator | — |
-| Generate Page Object | — |
-| Connect to real Chrome (bypass 403) | — |
-| Login and save storageState | — |
-| Open panel | — |
-| Set UI language | — |
+| Rescan | `Ctrl+Alt+R` |
+| Insert locator | `Ctrl+Alt+I` |
+| Copy locator | Visual Parser: Copy locator |
+| Generate POM | Visual Parser: Generate Page Object |
+| Real Chrome (403 bypass) | Visual Parser: Connect to real Chrome |
+| Login → storageState | Visual Parser: Login and save storageState |
+| UI language | Visual Parser: Set UI language |
 
-### Settings
+---
 
-`Settings → Visual Parser`:
+## Settings
 
-| Setting | Description |
-|---------|-------------|
-| `uiLanguage` | UI language: `auto` / `ru` / `en` |
+`Settings → Extensions → Visual Parser`
+
+| Setting | Purpose |
+|---------|---------|
+| `uiLanguage` | `auto` / `ru` / `en` |
 | `defaultBrowser` | `chromium` / `firefox` / `webkit` |
-| `useSystemChrome` | Use installed Google Chrome (fewer WAF blocks) |
-| `cdpEndpoint` | e.g. `http://127.0.0.1:9222` — attach to an existing Chrome |
-| `autoStartSession` | Open browser when VS Code starts |
-| `autoGeneratePageObject` | Auto-generate POM after scan |
-| `envFile` | Path to `.env` |
-| `storageStatePath` | Path to Playwright auth state |
+| `useSystemChrome` | System Chrome — fewer WAF blocks (on by default) |
+| `cdpEndpoint` | Attach to existing Chrome, e.g. `http://127.0.0.1:9222` |
+| `autoGeneratePageObject` | Auto-POM after scan |
 | `pagesDir` | Page Objects folder |
 | `preferTestId` | Prefer `data-testid` |
+| `envFile` / `storageStatePath` | Paths to `.env` and auth state |
 | `interactiveOnly` / `visibleOnly` | Catalog filters |
 
-### Authentication
+---
 
-1. Copy `.env.example` → `.env` and set `USER_EMAIL`, `USER_PASSWORD`, `LOGIN_URL`
-2. Adjust login selectors in settings if needed
-3. Run **Login and save storageState**
-4. Later scans reuse `playwright/.auth/user.json`
+## Authentication
 
-### If the site returns 403
+1. Copy `.env.example` → `.env`
+2. Set `USER_EMAIL`, `USER_PASSWORD`, `LOGIN_URL`
+3. Tweak login selectors in settings if needed
+4. Run **Login and save storageState**
+5. Later scans reuse `playwright/.auth/user.json`
 
-WAFs often block Playwright. Options:
+---
 
-1. Keep `useSystemChrome` enabled (default `true`)
-2. Use **Connect to real Chrome** or `scripts/open-chrome-debug.bat`, then set `cdpEndpoint = http://127.0.0.1:9222`
-3. If regular Chrome also gets 403 — IP/network block (VPN / another network)
+## Getting HTTP 403
 
-### Project structure
+WAFs often block automation. Try in order:
+
+1. Keep `useSystemChrome = true` (default)
+2. **Connect to real Chrome** or `scripts/open-chrome-debug.bat`, then  
+   `cdpEndpoint = http://127.0.0.1:9222`
+3. If normal Chrome also gets 403 — IP/network block (VPN / another network)
+
+---
+
+## Project layout
 
 ```text
 src/
-  extension.ts     # commands & activation
-  i18n/            # RU / EN strings
-  scanner/         # Playwright scan + locator ranking
-  generator/       # Page Object generation
-  providers/       # catalog Tree View
-  webview/         # screenshot panel
-  config/          # settings & .env
-pages/             # generated Page Objects
+  extension.ts      commands & activation
+  scanner/          Playwright scan + locator ranking
+  generator/        Page Object generation
+  providers/        catalog tree
+  webview/          screenshot panel
+  i18n/             RU / EN
+  config/           settings & .env
+pages/              generated POMs (gitignored)
+scripts/            install-local, open-chrome-debug
 ```
 
-### Roadmap
+---
+
+## Roadmap
 
 - Crawl site sections
 - Smart merge of existing POMs
 - Recorder → `test.step`
 - CLI locator checks in CI
 
-### License
+---
 
-MIT — see [LICENSE](LICENSE).
+## License
+
+[MIT](LICENSE) © [AnzeMiles69](https://github.com/AnzeMiles69)
+
+Repo: [visual-parser-url](https://github.com/AnzeMiles69/visual-parser-url)

@@ -90,110 +90,161 @@ function hasNamedLocator(el: ScannedElement): boolean {
   return Boolean(semanticLabel(el));
 }
 
-function locatorFieldName(el: ScannedElement, used: Set<string>): string {
-  const label = semanticLabel(el);
-  const role = el.role || el.tag || 'el';
-
-  if (role === 'combobox' || el.tag === 'select') {
-    return uniqueName(toCamelCase(`${label || 'filter'} Select`), used);
+/** Имя из выражения локатора — обычно короче и точнее, чем сырой accessible name. */
+function nameFromLocatorExpression(expr: string): string | null {
+  const patterns = [
+    /getByRole\([^)]*name:\s*['"]([^'"]+)['"]/,
+    /getByLabel\(\s*['"]([^'"]+)['"]/,
+    /getByPlaceholder\(\s*['"]([^'"]+)['"]/,
+    /getByText\(\s*['"]([^'"]+)['"]/,
+    /getByTestId\(\s*['"]([^'"]+)['"]/,
+  ];
+  for (const re of patterns) {
+    const m = expr.match(re);
+    if (m?.[1]) {
+      return m[1].replace(/\s+/g, ' ').trim();
+    }
   }
-  if (role === 'textbox' || el.tag === 'textarea' || el.tag === 'input') {
-    return uniqueName(toCamelCase(`${label || 'field'} Input`), used);
-  }
-  if (role === 'button' || el.tag === 'button') {
-    return uniqueName(toCamelCase(`${label || 'action'} Button`), used);
-  }
-  if (role === 'link' || el.tag === 'a') {
-    return uniqueName(toCamelCase(`${label || 'link'} Link`), used);
-  }
-  if (role === 'checkbox' || role === 'switch') {
-    return uniqueName(toCamelCase(`${label || 'option'} Switch`), used);
-  }
-  return uniqueName(toCamelCase(`${label || role}`), used);
-}
-
-type ActionKind = 'fill' | 'check' | 'select' | 'click';
-
-function actionForElement(el: ScannedElement): { kind: ActionKind; methodBase: string } | null {
-  if (!el.interactive || el.disabled) {
-    return null;
-  }
-
-  const label = semanticLabel(el);
-  if (!label && !el.testId) {
-    return null;
-  }
-
-  const source = label || el.testId || 'item';
-
-  if (
-    el.role === 'textbox' ||
-    el.tag === 'textarea' ||
-    el.inputType === 'email' ||
-    el.inputType === 'password' ||
-    el.inputType === 'text' ||
-    el.inputType === 'search'
-  ) {
-    return { kind: 'fill', methodBase: toCamelCase(`fill ${source}`) };
-  }
-
-  if (el.role === 'checkbox' || el.role === 'switch' || el.inputType === 'checkbox') {
-    return { kind: 'check', methodBase: toCamelCase(`toggle ${source}`) };
-  }
-
-  if (el.role === 'combobox' || el.tag === 'select') {
-    return { kind: 'select', methodBase: toCamelCase(`select ${source}`) };
-  }
-
-  if (
-    el.role === 'button' ||
-    el.role === 'link' ||
-    el.role === 'menuitem' ||
-    el.tag === 'button' ||
-    el.tag === 'a' ||
-    el.inputType === 'submit'
-  ) {
-    return { kind: 'click', methodBase: toCamelCase(`click ${source}`) };
-  }
-
   return null;
 }
 
-/** Ant Design / custom select: click → option, не native selectOption */
-function methodBodyTs(fieldName: string, methodName: string, kind: ActionKind): string {
-  if (kind === 'fill') {
-    return `  async ${methodName}(value: string): Promise<void> {\n    await this.${fieldName}.fill(value);\n  }`;
+const NAME_STOPWORDS = new Set([
+  'a', 'an', 'the', 'and', 'or', 'to', 'of', 'in', 'for', 'with', 'on', 'at',
+  'by', 'from', 'full', 'sized', 'size', 'your', 'my', 'our', 'this', 'that',
+]);
+
+/**
+ * Сжимает длинный accessible name в короткое человекочитаемое имя поля.
+ * "Follow 0 followers · 1 following Netherlands" → "follow"
+ * "Contribution activity in 2026, 1 of 9" → "contribution 2026"
+ */
+function beautifyNameSource(raw: string): string {
+  let s = raw.replace(/\s+/g, ' ').trim();
+
+  const contrib = s.match(/contribution\s+activity\s+in\s+(\d{4})/i);
+  if (contrib) {
+    return `contribution ${contrib[1]}`;
   }
-  if (kind === 'check') {
-    return `  async ${methodName}(): Promise<void> {\n    await this.${fieldName}.click();\n  }`;
+
+  if (/^follow\b/i.test(s) && /follower/i.test(s)) {
+    return 'follow';
   }
-  if (kind === 'select') {
-    return [
-      `  async ${methodName}(value: string): Promise<void> {`,
-      `    await this.${fieldName}.click();`,
-      `    await this.page.getByRole('option', { name: value }).click();`,
-      `  }`,
-    ].join('\n');
+
+  if (/\bavatar\b/i.test(s)) {
+    return 'avatar';
   }
-  return `  async ${methodName}(): Promise<void> {\n    await this.${fieldName}.click();\n  }`;
+
+  if (/^overview\b/i.test(s) && /repositor/i.test(s)) {
+    return 'profile nav';
+  }
+
+  // убрать глаголы-префиксы
+  s = s.replace(/^(view|go to|open|click|show|hide|toggle|visit|see)\s+/i, '');
+
+  // счётчики и «1 of 9»
+  s = s.replace(/,?\s*\d+\s+of\s+\d+/gi, '');
+  s = s.replace(
+    /\b\d+\s*(followers?|following|projects?|packages?|stars?|repositories|repos?)\b/gi,
+    ''
+  );
+  s = s.replace(/[·•|]+/g, ' ');
+  s = s.replace(/\s+/g, ' ').trim();
+
+  // data-name / testid style
+  if (/^[a-z0-9]+(?:[_-][a-z0-9]+)+$/i.test(s)) {
+    s = s.replace(/^(btn|button|link|input|field)_?/i, '').replace(/[_-]+/g, ' ');
+  }
+
+  const words = s
+    .split(/[^a-zA-Z0-9а-яА-ЯёЁ]+/)
+    .filter(Boolean)
+    .filter((w) => !NAME_STOPWORDS.has(w.toLowerCase()))
+    .slice(0, 3);
+
+  if (words.length === 0) {
+    return 'element';
+  }
+
+  return words.join(' ');
 }
 
-function methodBodyJs(fieldName: string, methodName: string, kind: ActionKind): string {
-  if (kind === 'fill') {
-    return `  async ${methodName}(value) {\n    await this.${fieldName}.fill(value);\n  }`;
+function roleSuffix(el: ScannedElement): string {
+  const role = el.role || el.tag || '';
+  if (role === 'combobox' || el.tag === 'select') {
+    return 'Select';
   }
-  if (kind === 'check') {
-    return `  async ${methodName}() {\n    await this.${fieldName}.click();\n  }`;
+  if (
+    role === 'textbox' ||
+    role === 'searchbox' ||
+    el.tag === 'textarea' ||
+    el.tag === 'input' ||
+    el.inputType === 'text' ||
+    el.inputType === 'search' ||
+    el.inputType === 'email' ||
+    el.inputType === 'password'
+  ) {
+    return 'Input';
   }
-  if (kind === 'select') {
-    return [
-      `  async ${methodName}(value) {`,
-      `    await this.${fieldName}.click();`,
-      `    await this.page.getByRole('option', { name: value }).click();`,
-      `  }`,
-    ].join('\n');
+  if (role === 'checkbox' || role === 'switch') {
+    return 'Switch';
   }
-  return `  async ${methodName}() {\n    await this.${fieldName}.click();\n  }`;
+  if (role === 'button' || el.tag === 'button' || el.inputType === 'submit') {
+    return 'Button';
+  }
+  if (role === 'link' || el.tag === 'a') {
+    return 'Link';
+  }
+  return '';
+}
+
+function locatorFieldName(el: ScannedElement, used: Set<string>): string {
+  // приоритет коротких стабильных имён
+  const fromData = el.dataName || el.testId;
+  const fromLocator = nameFromLocatorExpression(el.bestLocator.expression);
+  const fromSemantics =
+    el.description || el.label || el.placeholder || el.roleName || el.name || el.text;
+
+  const candidates = [fromData, fromLocator, fromSemantics].filter(
+    (v): v is string => Boolean(v && String(v).trim())
+  );
+
+  // берём самый короткий осмысленный источник (после beautify), но не пустой
+  let bestBase = 'element';
+  let bestLen = Infinity;
+  for (const c of candidates) {
+    const nice = beautifyNameSource(c);
+    if (!nice || nice === 'element') {
+      continue;
+    }
+    if (nice.length < bestLen) {
+      bestLen = nice.length;
+      bestBase = nice;
+    }
+  }
+
+  const suffix = roleSuffix(el);
+  let field = toCamelCase(bestBase);
+
+  // не дублировать Link/Button в конце
+  if (suffix) {
+    const lower = field.toLowerCase();
+    const suf = suffix.toLowerCase();
+    if (!lower.endsWith(suf)) {
+      field = toCamelCase(`${bestBase} ${suffix}`);
+    }
+  }
+
+  // жёсткий потолок длины имени
+  if (field.length > 40) {
+    field = field.slice(0, 40);
+    // не резать посередине так, чтобы осталась цифра в конце без букв — просто trim
+    field = field.replace(/[0-9]+$/, '');
+    if (!field) {
+      field = 'element';
+    }
+  }
+
+  return uniqueName(field, used);
 }
 
 export function suggestClassName(pageTitle: string, pageUrl: string): string {
@@ -257,11 +308,37 @@ export function selectElementsForPageObject(elements: ScannedElement[]): Scanned
   return deduped;
 }
 
+function tableHelpersTs(): string {
+  return [
+    '  /** Строка таблицы по тексту ячейки */',
+    '  rowByText(text: string) {',
+    "    return this.page.getByRole('row').filter({ hasText: text });",
+    '  }',
+    '',
+    '  /** Кнопка внутри строки таблицы */',
+    '  buttonInRow(rowText: string, name: string | RegExp) {',
+    "    return this.rowByText(rowText).getByRole('button', { name });",
+    '  }',
+  ].join('\n');
+}
+
+function tableHelpersJs(): string {
+  return [
+    '  /** Строка таблицы по тексту ячейки */',
+    '  rowByText(text) {',
+    "    return this.page.getByRole('row').filter({ hasText: text });",
+    '  }',
+    '',
+    '  /** Кнопка внутри строки таблицы */',
+    '  buttonInRow(rowText, name) {',
+    "    return this.rowByText(rowText).getByRole('button', { name });",
+    '  }',
+  ].join('\n');
+}
+
 export function generatePageObjectSource(options: GeneratorOptions): string {
   const fieldNames = new Set<string>();
-  const methodNames = new Set<string>();
   const fields: string[] = [];
-  const methods: string[] = [];
   const isTs = options.language === 'typescript';
 
   const tableRowCount = options.elements.filter((el) => el.inDataRow).length;
@@ -271,35 +348,15 @@ export function generatePageObjectSource(options: GeneratorOptions): string {
     const fieldName = locatorFieldName(el, fieldNames);
     const locatorExpr = el.bestLocator.expression.replace(/^page\./, 'this.page.');
     if (isTs) {
-      fields.push(`  private readonly ${fieldName} = ${locatorExpr};`);
+      fields.push(`  readonly ${fieldName} = ${locatorExpr};`);
     } else {
       fields.push(`    this.${fieldName} = ${locatorExpr};`);
     }
-
-    const action = actionForElement(el);
-    if (action) {
-      const methodName = uniqueName(action.methodBase, methodNames);
-      methods.push(
-        isTs
-          ? methodBodyTs(fieldName, methodName, action.kind)
-          : methodBodyJs(fieldName, methodName, action.kind)
-      );
-    }
   }
 
-  if (tableRowCount > 0 && isTs) {
-    methods.push(
-      [
-        '  /** Строка таблицы по тексту ячейки */',
-        '  rowByText(text: string) {',
-        "    return this.page.getByRole('row').filter({ hasText: text });",
-        '  }',
-        '',
-        '  async clickInRow(rowText: string, name: string | RegExp): Promise<void> {',
-        "    await this.rowByText(rowText).getByRole('button', { name }).click();",
-        '  }',
-      ].join('\n')
-    );
+  const helpers: string[] = [];
+  if (tableRowCount > 0) {
+    helpers.push(isTs ? tableHelpersTs() : tableHelpersJs());
   }
 
   const header = [
@@ -308,7 +365,7 @@ export function generatePageObjectSource(options: GeneratorOptions): string {
     ` * URL: ${options.pageUrl}`,
     ` * Элементов в POM: ${limited.length}` +
       (tableRowCount ? ` (строк таблицы пропущено: ${tableRowCount})` : ''),
-    ' * Локаторы private; наружу — user actions.',
+    ' * Локаторы — readonly; в тесте: await pom.signIn.click() / .fill() / expect(pom.signIn).',
     ' */',
     '',
   ].join('\n');
@@ -319,11 +376,10 @@ export function generatePageObjectSource(options: GeneratorOptions): string {
       "import { type Page } from '@playwright/test';",
       '',
       `export class ${options.className} {`,
-      '  constructor(private readonly page: Page) {}',
+      '  constructor(readonly page: Page) {}',
       '',
       ...fields,
-      '',
-      ...methods,
+      ...(helpers.length ? ['', ...helpers] : []),
       '}',
       '',
     ].join('\n');
@@ -339,8 +395,7 @@ export function generatePageObjectSource(options: GeneratorOptions): string {
     '    this.page = page;',
     ...fields,
     '  }',
-    '',
-    ...methods,
+    ...(helpers.length ? ['', ...helpers] : []),
     '}',
     '',
     `module.exports = { ${options.className} };`,
