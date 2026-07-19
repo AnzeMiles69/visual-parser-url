@@ -1,8 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import type { UiLanguageSetting } from '../i18n';
+import { resolveUiLanguage, type UiLanguageSetting } from '../i18n';
 import type { BrowserName } from '../types';
+
+export type LocaleSetting = 'auto' | 'ru' | 'en';
 
 export interface VisualParserSettings {
   uiLanguage: UiLanguageSetting;
@@ -11,6 +13,7 @@ export interface VisualParserSettings {
   autoGeneratePageObject: boolean;
   useSystemChrome: boolean;
   cdpEndpoint: string;
+  /** Готовый BCP-47 locale для Playwright (ru-RU / en-US) */
   locale: string;
   timezoneId: string;
   headless: boolean;
@@ -28,8 +31,34 @@ export interface VisualParserSettings {
   loginSubmitSelector: string;
 }
 
+function normalizeLocaleSetting(raw: string | undefined): LocaleSetting {
+  const value = (raw ?? 'auto').trim();
+  if (value === 'ru' || value === 'ru-RU' || value.toLowerCase().startsWith('ru')) {
+    return 'ru';
+  }
+  if (value === 'en' || value === 'en-US' || value.toLowerCase().startsWith('en')) {
+    return 'en';
+  }
+  return 'auto';
+}
+
+/** auto / ru / en → locale строка для браузера */
+export function resolveBrowserLocale(setting?: LocaleSetting): string {
+  const mode = setting ?? normalizeLocaleSetting(
+    vscode.workspace.getConfiguration('visualParser').get<string>('locale')
+  );
+  if (mode === 'ru') {
+    return 'ru-RU';
+  }
+  if (mode === 'en') {
+    return 'en-US';
+  }
+  return resolveUiLanguage() === 'ru' ? 'ru-RU' : 'en-US';
+}
+
 export function getSettings(): VisualParserSettings {
   const cfg = vscode.workspace.getConfiguration('visualParser');
+  const localeSetting = normalizeLocaleSetting(cfg.get<string>('locale', 'auto'));
   return {
     uiLanguage: cfg.get<UiLanguageSetting>('uiLanguage', 'auto'),
     defaultBrowser: cfg.get<BrowserName>('defaultBrowser', 'chromium'),
@@ -37,7 +66,7 @@ export function getSettings(): VisualParserSettings {
     autoGeneratePageObject: cfg.get<boolean>('autoGeneratePageObject', true),
     useSystemChrome: cfg.get<boolean>('useSystemChrome', true),
     cdpEndpoint: cfg.get<string>('cdpEndpoint', ''),
-    locale: cfg.get<string>('locale', 'ru-RU'),
+    locale: resolveBrowserLocale(localeSetting),
     timezoneId: cfg.get<string>('timezoneId', 'Europe/Moscow'),
     headless: cfg.get<boolean>('headless', false),
     envFile: cfg.get<string>('envFile', '.env'),

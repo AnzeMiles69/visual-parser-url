@@ -84,6 +84,21 @@
         "icon": "$(file-code)"
       },
       {
+        "command": "visualParser.selectAllForPom",
+        "title": "%visualParser.command.selectAllForPom%",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "visualParser.selectNoneForPom",
+        "title": "%visualParser.command.selectNoneForPom%",
+        "icon": "$(close-all)"
+      },
+      {
+        "command": "visualParser.selectDefaultForPom",
+        "title": "%visualParser.command.selectDefaultForPom%",
+        "icon": "$(checklist)"
+      },
+      {
         "command": "visualParser.saveStorageState",
         "title": "%visualParser.command.saveStorageState%"
       },
@@ -91,6 +106,11 @@
         "command": "visualParser.setLanguage",
         "title": "%visualParser.command.setLanguage%",
         "icon": "$(globe)"
+      },
+      {
+        "command": "visualParser.openSettings",
+        "title": "%visualParser.command.openSettings%",
+        "icon": "$(gear)"
       }
     ],
     "menus": {
@@ -114,6 +134,26 @@
           "command": "visualParser.generatePageObject",
           "when": "view == visualParser.catalog",
           "group": "navigation@4"
+        },
+        {
+          "command": "visualParser.selectAllForPom",
+          "when": "view == visualParser.catalog",
+          "group": "navigation@5"
+        },
+        {
+          "command": "visualParser.selectNoneForPom",
+          "when": "view == visualParser.catalog",
+          "group": "navigation@6"
+        },
+        {
+          "command": "visualParser.selectDefaultForPom",
+          "when": "view == visualParser.catalog",
+          "group": "navigation@7"
+        },
+        {
+          "command": "visualParser.openSettings",
+          "when": "view == visualParser.catalog",
+          "group": "navigation@8"
         }
       ],
       "view/item/context": [
@@ -179,32 +219,42 @@
             "webkit"
           ],
           "default": "chromium",
-          "description": "Браузер для сканирования"
+          "description": "%visualParser.config.defaultBrowser%"
         },
         "visualParser.autoStartSession": {
           "type": "boolean",
           "default": false,
-          "description": "При запуске VS Code сразу открывать браузер (обычно выключено — запускай командой)"
+          "description": "%visualParser.config.autoStartSession%"
         },
         "visualParser.autoGeneratePageObject": {
           "type": "boolean",
           "default": true,
-          "description": "После скана автоматически генерировать Page Object"
+          "description": "%visualParser.config.autoGeneratePageObject%"
         },
         "visualParser.useSystemChrome": {
           "type": "boolean",
           "default": true,
-          "description": "Запускать установленный Google Chrome (меньше блокировок WAF, чем Playwright Chromium)"
+          "description": "%visualParser.config.useSystemChrome%"
         },
         "visualParser.cdpEndpoint": {
           "type": "string",
           "default": "",
-          "description": "Подключение к уже открытому Chrome, например http://127.0.0.1:9222 (обход 403)"
+          "description": "%visualParser.config.cdpEndpoint%"
         },
         "visualParser.locale": {
           "type": "string",
-          "default": "ru-RU",
-          "description": "Locale браузера"
+          "enum": [
+            "auto",
+            "ru",
+            "en"
+          ],
+          "default": "auto",
+          "enumDescriptions": [
+            "%visualParser.config.locale.auto%",
+            "%visualParser.config.locale.ru%",
+            "%visualParser.config.locale.en%"
+          ],
+          "description": "%visualParser.config.locale%"
         },
         "visualParser.timezoneId": {
           "type": "string",

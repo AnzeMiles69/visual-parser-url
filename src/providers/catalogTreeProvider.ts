@@ -11,18 +11,29 @@ function sectionTitle(section: string | null): string {
   return section;
 }
 
+function elementLabel(element: ScannedElement): string {
+  return (
+    element.description ||
+    element.name ||
+    element.roleName ||
+    element.dataName ||
+    element.label ||
+    element.testId ||
+    element.text ||
+    element.tag
+  );
+}
+
+function checkboxIcon(
+  extensionUri: vscode.Uri,
+  kind: 'checked' | 'unchecked' | 'mixed'
+): vscode.Uri {
+  return vscode.Uri.joinPath(extensionUri, 'media', `checkbox-${kind}.svg`);
+}
+
 export class ElementTreeItem extends vscode.TreeItem {
   constructor(public readonly element: ScannedElement) {
-    const label =
-      element.description ||
-      element.name ||
-      element.roleName ||
-      element.dataName ||
-      element.label ||
-      element.testId ||
-      element.text ||
-      element.tag;
-    super(label, vscode.TreeItemCollapsibleState.None);
+    super(elementLabel(element), vscode.TreeItemCollapsibleState.None);
     this.contextValue = 'element';
     this.id = element.id;
     this.description = [
@@ -34,12 +45,17 @@ export class ElementTreeItem extends vscode.TreeItem {
     const warnings = element.bestLocator.warnings.map(warningLabel).join('\n');
     this.tooltip = [
       element.bestLocator.expression,
-      warnings ? `\nПредупреждения:\n${warnings}` : '',
-      element.section ? `\nСекция: ${element.section}` : '',
-      element.inIframe ? '\niframe: да' : '',
+      warnings ? `\n${warnings}` : '',
+      element.section ? `\n${element.section}` : '',
+      element.inIframe ? '\niframe' : '',
+      `\n${t('tree.checkboxHint')}`,
     ]
       .filter(Boolean)
       .join('');
+
+    this.checkboxState = scanStore.isIncluded(element.id)
+      ? vscode.TreeItemCheckboxState.Checked
+      : vscode.TreeItemCheckboxState.Unchecked;
 
     this.iconPath = new vscode.ThemeIcon(
       element.bestLocator.unique ? 'symbol-field' : 'warning'
@@ -47,24 +63,59 @@ export class ElementTreeItem extends vscode.TreeItem {
   }
 }
 
+/**
+ * Секции: свой tri-state чекбокс (SVG), т.к. TreeItemCheckboxState
+ * поддерживает только Checked/Unchecked и ломается на mixed.
+ */
 export class SectionTreeItem extends vscode.TreeItem {
   constructor(
     public readonly sectionName: string,
-    public readonly children: ElementTreeItem[]
+    public readonly children: ElementTreeItem[],
+    extensionUri: vscode.Uri
   ) {
     super(sectionName, vscode.TreeItemCollapsibleState.Expanded);
     this.contextValue = 'section';
     this.id = `section:${sectionName}`;
-    this.description = `${children.length}`;
-    this.iconPath = new vscode.ThemeIcon('folder');
+
+    const childIds = children.map((c) => c.element.id);
+    const includedCount = childIds.filter((id) => scanStore.isIncluded(id)).length;
+    const total = childIds.length;
+    const allOn = total > 0 && includedCount === total;
+    const noneOn = includedCount === 0;
+    const partial = !allOn && !noneOn;
+
+    this.description = `${includedCount}/${total}`;
+    this.iconPath = checkboxIcon(
+      extensionUri,
+      allOn ? 'checked' : partial ? 'mixed' : 'unchecked'
+    );
+
+    this.tooltip = partial
+      ? t('tree.sectionPartialSelected', { included: includedCount, total })
+      : allOn
+        ? t('tree.sectionAllSelected')
+        : t('tree.sectionNoneSelected');
+
+    // Клик по названию секции = переключить всю группу (chevron слева — раскрыть/свернуть)
+    this.command = {
+      command: 'visualParser.toggleSectionForPom',
+      title: t('tree.toggleSection'),
+      arguments: [childIds],
+    };
+  }
+
+  get childElementIds(): string[] {
+    return this.children.map((c) => c.element.id);
   }
 }
 
-type CatalogNode = SectionTreeItem | ElementTreeItem;
+export type CatalogNode = SectionTreeItem | ElementTreeItem;
 
 export class CatalogTreeProvider implements vscode.TreeDataProvider<CatalogNode> {
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<CatalogNode | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+
+  constructor(private readonly extensionUri: vscode.Uri) {}
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
@@ -72,6 +123,24 @@ export class CatalogTreeProvider implements vscode.TreeDataProvider<CatalogNode>
 
   getTreeItem(element: CatalogNode): vscode.TreeItem {
     return element;
+  }
+
+  getParent(element: CatalogNode): CatalogNode | undefined {
+    if (!(element instanceof ElementTreeItem)) {
+      return undefined;
+    }
+    const name = sectionTitle(element.element.section);
+    const kids = scanStore
+      .getElements()
+      .filter((el) => sectionTitle(el.section) === name)
+      .map((el) => new ElementTreeItem(el));
+    return new SectionTreeItem(name, kids, this.extensionUri);
+  }
+
+  /** Элемент дерева для TreeView.reveal */
+  findElementItem(elementId: string): ElementTreeItem | undefined {
+    const el = scanStore.findById(elementId);
+    return el ? new ElementTreeItem(el) : undefined;
   }
 
   getChildren(element?: CatalogNode): CatalogNode[] {
@@ -93,7 +162,12 @@ export class CatalogTreeProvider implements vscode.TreeDataProvider<CatalogNode>
     }
 
     return Array.from(groups.entries()).map(
-      ([name, items]) => new SectionTreeItem(name, items.map((item) => new ElementTreeItem(item)))
+      ([name, items]) =>
+        new SectionTreeItem(
+          name,
+          items.map((item) => new ElementTreeItem(item)),
+          this.extensionUri
+        )
     );
   }
 }

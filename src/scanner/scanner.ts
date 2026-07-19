@@ -5,6 +5,7 @@ import { t } from '../i18n';
 import type { AuthOptions, ScanOptions, ScanPageResult, ScannedElement } from '../types';
 import { extractDomElements } from './extractScript';
 import { dedupeCatalogElements, enrichWithLocators, markUniqueness } from './locatorRanker';
+import { screenshotFullPageAligned } from './screenshotAlign';
 
 function getLauncher(browserName: ScanOptions['browser']) {
   switch (browserName) {
@@ -22,6 +23,7 @@ async function createContext(options: ScanOptions): Promise<{ browser: Browser; 
   const browser = await launcher.launch({ headless: options.headless });
   const contextOptions: Parameters<Browser['newContext']>[0] = {
     viewport: { width: 1440, height: 900 },
+    deviceScaleFactor: 1,
   };
 
   if (options.storageStatePath && fs.existsSync(options.storageStatePath)) {
@@ -130,7 +132,7 @@ export async function scanUrl(options: ScanOptions): Promise<ScanPageResult> {
     const filtered = applyFilters(rawElements, options.interactiveOnly, options.visibleOnly);
     const elements = dedupeCatalogElements(markUniqueness(filtered));
 
-    const screenshot = await page.screenshot({ fullPage: true, type: 'png' });
+    const screenshot = await screenshotFullPageAligned(page, elements);
     const title = await page.title();
 
     if (elements.some((e) => e.inShadow)) {

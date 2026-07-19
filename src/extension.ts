@@ -16,7 +16,11 @@ import {
   writePageObject,
 } from './generator/pageObjectGenerator';
 import { t, type UiLanguage } from './i18n';
-import { CatalogTreeProvider, ElementTreeItem } from './providers/catalogTreeProvider';
+import {
+  CatalogTreeProvider,
+  ElementTreeItem,
+  SectionTreeItem,
+} from './providers/catalogTreeProvider';
 import { BrowserSession } from './scanner/browserSession';
 import { loginAndSaveStorageState, scanUrl } from './scanner/scanner';
 import { scanStore } from './state/scanStore';
@@ -24,9 +28,35 @@ import type { BrowserName, ScanPageResult, ScannedElement } from './types';
 import { VisualParserPanel } from './webview/panel';
 
 let treeProvider: CatalogTreeProvider;
+let catalogView: vscode.TreeView<ElementTreeItem | SectionTreeItem>;
 let extensionUriRef: vscode.Uri | undefined;
 let session: BrowserSession | null = null;
 let statusBar: vscode.StatusBarItem;
+let pomAutoTimer: ReturnType<typeof setTimeout> | null = null;
+
+function refreshCatalogView(): void {
+  treeProvider.refresh();
+  const { included, total } = scanStore.getInclusionStats();
+  catalogView.description =
+    total > 0 ? t('tree.selectionCount', { included, total }) : undefined;
+}
+
+/** Авто-POM при смене галочек (debounce), если включено в настройках */
+function scheduleAutoPageObject(): void {
+  if (!getSettings().autoGeneratePageObject) {
+    return;
+  }
+  if (!scanStore.getResult() || !getWorkspaceRoot()) {
+    return;
+  }
+  if (pomAutoTimer) {
+    clearTimeout(pomAutoTimer);
+  }
+  pomAutoTimer = setTimeout(() => {
+    pomAutoTimer = null;
+    void generatePageObjectSilent({ reveal: false, quietEmpty: true });
+  }, 450);
+}
 
 function setStatus(message: string): void {
   statusBar.text = `$(browser) Visual Parser: ${message}`;
@@ -36,7 +66,7 @@ function setStatus(message: string): void {
 
 async function applyScanResult(result: ScanPageResult): Promise<void> {
   scanStore.setResult(result);
-  treeProvider.refresh();
+  refreshCatalogView();
 
   if (extensionUriRef) {
     VisualParserPanel.show(extensionUriRef, { reveal: true, refresh: true });
@@ -46,16 +76,21 @@ async function applyScanResult(result: ScanPageResult): Promise<void> {
     return;
   }
 
+  const { included, total } = scanStore.getInclusionStats();
   const warnText = result.warnings.length
     ? t('msg.warningsSuffix', { count: result.warnings.length })
     : '';
   void vscode.window.showInformationMessage(
-    t('msg.scanReady', { count: result.elements.length, warnings: warnText })
+    t('msg.scanReady', {
+      count: total,
+      selected: included,
+      warnings: warnText,
+    })
   );
 
   const settings = getSettings();
-  if (settings.autoGeneratePageObject && result.elements.length > 0) {
-    await generatePageObjectSilent(result);
+  if (settings.autoGeneratePageObject && included > 0) {
+    await generatePageObjectSilent({ reveal: true });
   }
 }
 
@@ -119,9 +154,31 @@ async function connectRealChrome(): Promise<void> {
   });
 }
 
-async function generatePageObjectSilent(result: ScanPageResult): Promise<void> {
+async function generatePageObjectSilent(options?: {
+  /** Открыть файл в редакторе (ручная генерация / после скана) */
+  reveal?: boolean;
+  /** Не показывать warning, если галочек нет */
+  quietEmpty?: boolean;
+}): Promise<void> {
+  const reveal = options?.reveal ?? true;
+  const quietEmpty = options?.quietEmpty ?? false;
+
+  const result = scanStore.getResult();
+  if (!result) {
+    return;
+  }
+
+  const selected = scanStore.getIncludedElements();
+  if (selected.length === 0 && !quietEmpty) {
+    void vscode.window.showWarningMessage(t('msg.noSelectionForPom'));
+    return;
+  }
+
   const root = getWorkspaceRoot();
   if (!root) {
+    if (reveal) {
+      void vscode.window.showWarningMessage(t('msg.openWorkspace'));
+    }
     return;
   }
 
@@ -138,14 +195,22 @@ async function generatePageObjectSilent(result: ScanPageResult): Promise<void> {
         className,
         filePath,
         pageUrl: result.url,
-        elements: result.elements,
+        elements: selected,
         language,
+        fromSelection: true,
       },
       true
     );
     const doc = await vscode.workspace.openTextDocument(written.filePath);
-    await vscode.window.showTextDocument(doc, { preview: false, viewColumn: vscode.ViewColumn.One });
-    setStatus(t('status.pageObject', { name: written.className }));
+    if (reveal) {
+      await vscode.window.showTextDocument(doc, { preview: false, viewColumn: vscode.ViewColumn.One });
+    }
+    setStatus(
+      t('status.pageObject', {
+        name: written.className,
+        count: selected.length,
+      })
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     void vscode.window.showWarningMessage(t('msg.poFailed', { error: message }));
@@ -323,16 +388,17 @@ async function runScan(url?: string): Promise<void> {
 
 export function activate(context: vscode.ExtensionContext): void {
   extensionUriRef = context.extensionUri;
-  treeProvider = new CatalogTreeProvider();
+  treeProvider = new CatalogTreeProvider(context.extensionUri);
 
   statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   statusBar.command = 'visualParser.startSession';
   setStatus(t('status.ready'));
   context.subscriptions.push(statusBar);
 
-  const catalogView = vscode.window.createTreeView('visualParser.catalog', {
+  catalogView = vscode.window.createTreeView('visualParser.catalog', {
     treeDataProvider: treeProvider,
     showCollapseAll: true,
+    manageCheckboxStateManually: true,
   });
   context.subscriptions.push(catalogView);
 
@@ -346,6 +412,56 @@ export function activate(context: vscode.ExtensionContext): void {
         panel.highlight(selected.element.id);
       }
     })
+  );
+
+  async function revealInCatalog(elementId: string): Promise<void> {
+    const item = treeProvider.findElementItem(elementId);
+    if (!item) {
+      return;
+    }
+    try {
+      await catalogView.reveal(item, { select: true, focus: false, expand: true });
+    } catch {
+      // дерево могло ещё не отрисоваться
+    }
+  }
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('visualParser.revealInCatalog', async (elementId: string) => {
+      if (typeof elementId === 'string') {
+        await revealInCatalog(elementId);
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    catalogView.onDidChangeCheckboxState((event) => {
+      for (const [item, state] of event.items) {
+        if (item instanceof ElementTreeItem) {
+          scanStore.setIncluded(
+            item.element.id,
+            state === vscode.TreeItemCheckboxState.Checked
+          );
+        }
+      }
+      refreshCatalogView();
+      scheduleAutoPageObject();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'visualParser.toggleSectionForPom',
+      (childIds: string[]) => {
+        if (!Array.isArray(childIds) || childIds.length === 0) {
+          return;
+        }
+        const allSelected = childIds.every((id) => scanStore.isIncluded(id));
+        scanStore.setIncludedMany(childIds, !allSelected);
+        refreshCatalogView();
+        scheduleAutoPageObject();
+      }
+    )
   );
 
   context.subscriptions.push(
@@ -363,6 +479,15 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('visualParser.setLanguage', async () => {
       await pickUiLanguage();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('visualParser.openSettings', async () => {
+      await vscode.commands.executeCommand(
+        'workbench.action.openSettings',
+        '@ext:anzemiles69.visual-parser'
+      );
     })
   );
 
@@ -470,7 +595,43 @@ export function activate(context: vscode.ExtensionContext): void {
         void vscode.window.showWarningMessage(t('msg.openWorkspace'));
         return;
       }
-      await generatePageObjectSilent(result);
+      await generatePageObjectSilent();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('visualParser.selectAllForPom', () => {
+      if (scanStore.getElements().length === 0) {
+        void vscode.window.showWarningMessage(t('msg.scanFirst'));
+        return;
+      }
+      scanStore.includeAll();
+      refreshCatalogView();
+      scheduleAutoPageObject();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('visualParser.selectNoneForPom', () => {
+      if (scanStore.getElements().length === 0) {
+        void vscode.window.showWarningMessage(t('msg.scanFirst'));
+        return;
+      }
+      scanStore.includeNone();
+      refreshCatalogView();
+      scheduleAutoPageObject();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('visualParser.selectDefaultForPom', () => {
+      if (!scanStore.getResult()) {
+        void vscode.window.showWarningMessage(t('msg.scanFirst'));
+        return;
+      }
+      scanStore.resetInclusionToDefaults();
+      refreshCatalogView();
+      scheduleAutoPageObject();
     })
   );
 
@@ -537,6 +698,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push({
     dispose: () => {
+      if (pomAutoTimer) {
+        clearTimeout(pomAutoTimer);
+        pomAutoTimer = null;
+      }
       void session?.dispose();
     },
   });
@@ -551,6 +716,10 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export async function deactivate(): Promise<void> {
+  if (pomAutoTimer) {
+    clearTimeout(pomAutoTimer);
+    pomAutoTimer = null;
+  }
   await session?.dispose();
   session = null;
   scanStore.clear();

@@ -342,7 +342,9 @@ export function generatePageObjectSource(options: GeneratorOptions): string {
   const isTs = options.language === 'typescript';
 
   const tableRowCount = options.elements.filter((el) => el.inDataRow).length;
-  const limited = selectElementsForPageObject(options.elements).slice(0, 60);
+  const limited = (
+    options.fromSelection ? options.elements : selectElementsForPageObject(options.elements)
+  ).slice(0, 60);
 
   for (const el of limited) {
     const fieldName = locatorFieldName(el, fieldNames);
@@ -355,7 +357,7 @@ export function generatePageObjectSource(options: GeneratorOptions): string {
   }
 
   const helpers: string[] = [];
-  if (tableRowCount > 0) {
+  if (tableRowCount > 0 || limited.some((el) => el.inDataRow)) {
     helpers.push(isTs ? tableHelpersTs() : tableHelpersJs());
   }
 
@@ -364,8 +366,9 @@ export function generatePageObjectSource(options: GeneratorOptions): string {
     ' * Сгенерировано Visual Parser.',
     ` * URL: ${options.pageUrl}`,
     ` * Элементов в POM: ${limited.length}` +
-      (tableRowCount ? ` (строк таблицы пропущено: ${tableRowCount})` : ''),
-    ' * Локаторы — readonly; в тесте: await pom.signIn.click() / .fill() / expect(pom.signIn).',
+      (options.fromSelection ? ' (выбраны галочками в каталоге)' : '') +
+      (!options.fromSelection && tableRowCount ? ` (строк таблицы пропущено: ${tableRowCount})` : ''),
+    ' * Локаторы — readonly; в тесте: await pom.signInButton.click() / .fill() / expect(...).',
     ' */',
     '',
   ].join('\n');

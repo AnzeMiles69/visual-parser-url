@@ -107,4 +107,6 @@ export interface GeneratorOptions {
   pageUrl: string;
   elements: ScannedElement[];
   language: 'typescript' | 'javascript';
+  /** Элементы уже выбраны галочками — не фильтровать заново */
+  fromSelection?: boolean;
 }

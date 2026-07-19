@@ -521,9 +521,10 @@ export function extractDomElements(): Array<{
       Boolean(htmlEl.closest('.ant-select-disabled'));
 
     const rect = htmlEl.getBoundingClientRect();
+    // document-координаты в CSS px (как у Playwright fullPage + scale:'css')
     const bbox = {
-      x: Math.round(rect.x + window.scrollX),
-      y: Math.round(rect.y + window.scrollY),
+      x: Math.round(rect.left + window.scrollX),
+      y: Math.round(rect.top + window.scrollY),
       width: Math.round(rect.width),
       height: Math.round(rect.height),
     };
@@ -531,9 +532,16 @@ export function extractDomElements(): Array<{
     const interactive = true;
 
     const inDataRow = isInDataRow(target) || isInDataRow(el);
+    const id = `el-${index++}`;
+    // для пересчёта bbox перед скриншотом (после scrollTo 0,0)
+    try {
+      htmlEl.setAttribute('data-vp-id', id);
+    } catch {
+      // ignore non-HTML / sealed nodes
+    }
 
     results.push({
-      id: `el-${index++}`,
+      id,
       tag,
       role,
       name,

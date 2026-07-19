@@ -1,10 +1,6 @@
 # Visual Parser
 
 <p align="center">
-  <img src="media/icon.svg" alt="Visual Parser" width="72" height="72">
-</p>
-
-<p align="center">
   <strong>Сканируй живую страницу → получи локаторы и Page Object</strong><br>
   без наведения мышкой, как в Playwright Codegen
 </p>
@@ -91,13 +87,19 @@ npm run install-local
 
 После скана слева — список найденных элементов:
 
+- **галочка** — включить элемент в Page Object
 - название и роль (`button`, `link`, …)
 - готовый локатор Playwright
 - подсказка, если локатор хрупкий (завязан на текст)
 - **Copy** / **Insert** — в буфер или в открытый файл
 - клик по строке — подсветка на скриншоте
 
-Это «меню» локаторов. Page Object собирается из тех же элементов.
+Сверху каталога: счётчик `в POM: 12/40`, кнопки «отметить всё / снять всё / умный выбор».  
+Галочка на секции отмечает или снимает всю группу.
+
+По умолчанию отмечено только то, что подходит для POM (без лишнего шума).  
+Сними/поставь галочку — файл `pages/*.page.ts` **обновится сам** (настройка `autoGeneratePageObject`, по умолчанию вкл.).  
+Кнопка **Generate Page Object** нужна, только если авто выключено.
 
 ---
 
@@ -137,7 +139,7 @@ npm run install-local
 | `defaultBrowser` | `chromium` / `firefox` / `webkit` |
 | `useSystemChrome` | Системный Chrome — меньше блокировок WAF (по умолчанию вкл.) |
 | `cdpEndpoint` | Подключение к уже открытому Chrome, напр. `http://127.0.0.1:9222` |
-| `autoGeneratePageObject` | Авто-POM после скана |
+| `autoGeneratePageObject` | Авто-POM после скана и при смене галочек |
 | `pagesDir` | Папка для Page Objects |
 | `preferTestId` | Предпочитать `data-testid` |
 | `envFile` / `storageStatePath` | Пути к `.env` и auth state |
@@ -280,13 +282,19 @@ After extension code changes: `npm run install-local` → Reload Window.
 
 After a scan, the Side Bar lists discovered elements:
 
+- **checkbox** — include in the Page Object
 - label + role
 - ready Playwright locator
 - warning when the locator is text-fragile
 - **Copy** / **Insert**
 - click a row to highlight it on the screenshot
 
-Same elements feed Page Object generation.
+Toolbar shows `for POM: 12/40` plus select-all / clear / smart-reset.  
+A section checkbox toggles the whole group.
+
+By default only POM-friendly items are checked.  
+Toggle a checkbox — `pages/*.page.ts` **updates automatically** (`autoGeneratePageObject`, on by default).  
+Use **Generate Page Object** only if auto is turned off.
 
 ---
 
@@ -326,7 +334,7 @@ Written to `pages/*.page.ts`:
 | `defaultBrowser` | `chromium` / `firefox` / `webkit` |
 | `useSystemChrome` | System Chrome — fewer WAF blocks (on by default) |
 | `cdpEndpoint` | Attach to existing Chrome, e.g. `http://127.0.0.1:9222` |
-| `autoGeneratePageObject` | Auto-POM after scan |
+| `autoGeneratePageObject` | Auto-POM after scan and when checkboxes change |
 | `pagesDir` | Page Objects folder |
 | `preferTestId` | Prefer `data-testid` |
 | `envFile` / `storageStatePath` | Paths to `.env` and auth state |

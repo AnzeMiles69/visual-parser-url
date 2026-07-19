@@ -11,6 +11,7 @@ import { t } from '../i18n';
 import type { BrowserName, ScanPageResult, ScannedElement } from '../types';
 import { extractDomElements } from './extractScript';
 import { dedupeCatalogElements, enrichWithLocators, markUniqueness } from './locatorRanker';
+import { screenshotFullPageAligned } from './screenshotAlign';
 
 export interface SessionScanOptions {
   interactiveOnly: boolean;
@@ -191,6 +192,7 @@ export class BrowserSession {
       }
 
       const contextOptions: Parameters<Browser['newContext']>[0] = {
+        // null = реальное окно Chrome; DPI калибруем в screenshotFullPageAligned
         viewport: null,
         locale: this.options.locale,
         timezoneId: this.options.timezoneId,
@@ -289,9 +291,9 @@ export class BrowserSession {
           url,
           title: '403 Forbidden',
           scannedAt: new Date().toISOString(),
-          screenshotBase64: (await this.page.screenshot({ fullPage: true, type: 'png' })).toString(
-            'base64'
-          ),
+          screenshotBase64: (
+            await screenshotFullPageAligned(this.page, [])
+          ).toString('base64'),
           elements: [],
           warnings: [message],
         };
@@ -309,7 +311,7 @@ export class BrowserSession {
         this.options.scanOptions.visibleOnly
       );
       const elements = dedupeCatalogElements(markUniqueness(filtered));
-      const screenshot = await this.page.screenshot({ fullPage: true, type: 'png' });
+      const screenshot = await screenshotFullPageAligned(this.page, elements);
       const title = await this.page.title();
 
       if (elements.some((e) => e.inShadow)) {
