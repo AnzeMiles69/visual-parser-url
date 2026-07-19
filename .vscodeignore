@@ -1,0 +1,13 @@
+.vscode/**
+.vscode-test/**
+src/**
+.gitignore
+tsconfig.json
+**/*.ts
+**/*.map
+node_modules/playwright/node_modules/**
+**/.env
+playwright/.auth/**
+*.vsix
+pages/**
+components/**

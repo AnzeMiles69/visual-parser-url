@@ -1,0 +1,18 @@
+{
+  "visualParser.view.catalog": "Element catalog",
+  "visualParser.command.startSession": "Visual Parser: Open browser (wait for URL)",
+  "visualParser.command.connectRealChrome": "Visual Parser: Connect to real Chrome (bypass 403)",
+  "visualParser.command.scanUrl": "Visual Parser: Scan URL",
+  "visualParser.command.rescan": "Visual Parser: Refresh scan",
+  "visualParser.command.openPanel": "Visual Parser: Open panel",
+  "visualParser.command.insertLocator": "Visual Parser: Insert best locator",
+  "visualParser.command.copyLocator": "Visual Parser: Copy locator",
+  "visualParser.command.generatePageObject": "Visual Parser: Generate Page Object",
+  "visualParser.command.saveStorageState": "Visual Parser: Login and save storageState",
+  "visualParser.command.setLanguage": "Visual Parser: Set UI language",
+  "visualParser.config.uiLanguage": "UI language (auto = follow VS Code)",
+  "visualParser.config.uiLanguage.auto": "Auto",
+  "visualParser.config.uiLanguage.ru": "Russian",
+  "visualParser.config.uiLanguage.en": "English",
+  "visualParser.description": "Auto-scan UI and generate Playwright Page Objects / locators without hovering"
+}

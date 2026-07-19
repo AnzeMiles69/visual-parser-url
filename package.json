@@ -1,0 +1,299 @@
+{
+  "name": "visual-parser",
+  "displayName": "Visual Parser",
+  "description": "%visualParser.description%",
+  "version": "0.1.0",
+  "publisher": "AnzeMiles69",
+  "author": {
+    "name": "Рябушкин Дмитрий",
+    "url": "https://github.com/AnzeMiles69"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AnzeMiles69/visual-parser.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Testing",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "visualParser",
+          "title": "Visual Parser",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "visualParser": [
+        {
+          "id": "visualParser.catalog",
+          "name": "%visualParser.view.catalog%"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "visualParser.startSession",
+        "title": "%visualParser.command.startSession%",
+        "icon": "$(browser)"
+      },
+      {
+        "command": "visualParser.connectRealChrome",
+        "title": "%visualParser.command.connectRealChrome%",
+        "icon": "$(debug-disconnect)"
+      },
+      {
+        "command": "visualParser.scanUrl",
+        "title": "%visualParser.command.scanUrl%",
+        "icon": "$(search)"
+      },
+      {
+        "command": "visualParser.rescan",
+        "title": "%visualParser.command.rescan%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "visualParser.openPanel",
+        "title": "%visualParser.command.openPanel%",
+        "icon": "$(preview)"
+      },
+      {
+        "command": "visualParser.insertLocator",
+        "title": "%visualParser.command.insertLocator%",
+        "icon": "$(insert)"
+      },
+      {
+        "command": "visualParser.copyLocator",
+        "title": "%visualParser.command.copyLocator%",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "visualParser.generatePageObject",
+        "title": "%visualParser.command.generatePageObject%",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "visualParser.saveStorageState",
+        "title": "%visualParser.command.saveStorageState%"
+      },
+      {
+        "command": "visualParser.setLanguage",
+        "title": "%visualParser.command.setLanguage%",
+        "icon": "$(globe)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "visualParser.startSession",
+          "when": "view == visualParser.catalog",
+          "group": "navigation@1"
+        },
+        {
+          "command": "visualParser.rescan",
+          "when": "view == visualParser.catalog",
+          "group": "navigation@2"
+        },
+        {
+          "command": "visualParser.openPanel",
+          "when": "view == visualParser.catalog",
+          "group": "navigation@3"
+        },
+        {
+          "command": "visualParser.generatePageObject",
+          "when": "view == visualParser.catalog",
+          "group": "navigation@4"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "visualParser.insertLocator",
+          "when": "view == visualParser.catalog && viewItem == element",
+          "group": "inline@1"
+        },
+        {
+          "command": "visualParser.copyLocator",
+          "when": "view == visualParser.catalog && viewItem == element",
+          "group": "inline@2"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "visualParser.insertLocator",
+          "group": "visualParser@1"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "visualParser.insertLocator",
+        "key": "ctrl+alt+i",
+        "mac": "cmd+alt+i",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "visualParser.scanUrl",
+        "key": "ctrl+alt+s",
+        "mac": "cmd+alt+s"
+      },
+      {
+        "command": "visualParser.rescan",
+        "key": "ctrl+alt+r",
+        "mac": "cmd+alt+r"
+      }
+    ],
+    "configuration": {
+      "title": "Visual Parser",
+      "properties": {
+        "visualParser.uiLanguage": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "ru",
+            "en"
+          ],
+          "default": "auto",
+          "enumDescriptions": [
+            "%visualParser.config.uiLanguage.auto%",
+            "%visualParser.config.uiLanguage.ru%",
+            "%visualParser.config.uiLanguage.en%"
+          ],
+          "description": "%visualParser.config.uiLanguage%"
+        },
+        "visualParser.defaultBrowser": {
+          "type": "string",
+          "enum": [
+            "chromium",
+            "firefox",
+            "webkit"
+          ],
+          "default": "chromium",
+          "description": "Браузер для сканирования"
+        },
+        "visualParser.autoStartSession": {
+          "type": "boolean",
+          "default": false,
+          "description": "При запуске VS Code сразу открывать браузер (обычно выключено — запускай командой)"
+        },
+        "visualParser.autoGeneratePageObject": {
+          "type": "boolean",
+          "default": true,
+          "description": "После скана автоматически генерировать Page Object"
+        },
+        "visualParser.useSystemChrome": {
+          "type": "boolean",
+          "default": true,
+          "description": "Запускать установленный Google Chrome (меньше блокировок WAF, чем Playwright Chromium)"
+        },
+        "visualParser.cdpEndpoint": {
+          "type": "string",
+          "default": "",
+          "description": "Подключение к уже открытому Chrome, например http://127.0.0.1:9222 (обход 403)"
+        },
+        "visualParser.locale": {
+          "type": "string",
+          "default": "ru-RU",
+          "description": "Locale браузера"
+        },
+        "visualParser.timezoneId": {
+          "type": "string",
+          "default": "Europe/Moscow",
+          "description": "Timezone браузера"
+        },
+        "visualParser.headless": {
+          "type": "boolean",
+          "default": false,
+          "description": "Headless только для фоновых команд (сессия всегда с окном)"
+        },
+        "visualParser.envFile": {
+          "type": "string",
+          "default": ".env",
+          "description": "Путь к .env относительно корня workspace"
+        },
+        "visualParser.storageStatePath": {
+          "type": "string",
+          "default": "playwright/.auth/user.json",
+          "description": "Путь к Playwright storageState"
+        },
+        "visualParser.pagesDir": {
+          "type": "string",
+          "default": "pages",
+          "description": "Папка для Page Objects"
+        },
+        "visualParser.componentsDir": {
+          "type": "string",
+          "default": "components",
+          "description": "Папка для компонентов"
+        },
+        "visualParser.preferTestId": {
+          "type": "boolean",
+          "default": false,
+          "description": "Предпочитать data-testid даже если есть role/name"
+        },
+        "visualParser.interactiveOnly": {
+          "type": "boolean",
+          "default": true,
+          "description": "Показывать только интерактивные элементы"
+        },
+        "visualParser.visibleOnly": {
+          "type": "boolean",
+          "default": true,
+          "description": "Показывать только видимые элементы"
+        },
+        "visualParser.navigationTimeoutMs": {
+          "type": "number",
+          "default": 30000,
+          "description": "Таймаут навигации (мс)"
+        },
+        "visualParser.loginUrl": {
+          "type": "string",
+          "default": "",
+          "description": "URL страницы логина (для saveStorageState)"
+        },
+        "visualParser.loginEmailSelector": {
+          "type": "string",
+          "default": "input[type='email'], input[name='email'], input[name='username']",
+          "description": "CSS-селектор поля логина/email"
+        },
+        "visualParser.loginPasswordSelector": {
+          "type": "string",
+          "default": "input[type='password']",
+          "description": "CSS-селектор поля пароля"
+        },
+        "visualParser.loginSubmitSelector": {
+          "type": "string",
+          "default": "button[type='submit']",
+          "description": "CSS-селектор кнопки входа"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "tsc -p ./ --noEmit",
+    "package": "vsce package --allow-missing-repository",
+    "install-local": "npm run compile && vsce package --allow-missing-repository && code --install-extension visual-parser-0.1.0.vsix --force"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.9.2",
+    "typescript": "^5.3.3"
+  }
+}

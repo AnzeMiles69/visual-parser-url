@@ -1,0 +1,18 @@
+{
+  "visualParser.view.catalog": "Каталог элементов",
+  "visualParser.command.startSession": "Visual Parser: Открыть браузер (жду URL)",
+  "visualParser.command.connectRealChrome": "Visual Parser: Подключиться к реальному Chrome (обход 403)",
+  "visualParser.command.scanUrl": "Visual Parser: Сканировать URL",
+  "visualParser.command.rescan": "Visual Parser: Обновить скан",
+  "visualParser.command.openPanel": "Visual Parser: Открыть панель",
+  "visualParser.command.insertLocator": "Visual Parser: Вставить лучший локатор",
+  "visualParser.command.copyLocator": "Visual Parser: Копировать локатор",
+  "visualParser.command.generatePageObject": "Visual Parser: Сгенерировать Page Object",
+  "visualParser.command.saveStorageState": "Visual Parser: Войти и сохранить storageState",
+  "visualParser.command.setLanguage": "Visual Parser: Выбрать язык интерфейса",
+  "visualParser.config.uiLanguage": "Язык интерфейса (auto = как в VS Code)",
+  "visualParser.config.uiLanguage.auto": "Авто",
+  "visualParser.config.uiLanguage.ru": "Русский",
+  "visualParser.config.uiLanguage.en": "English",
+  "visualParser.description": "Автосканирование UI и генерация Playwright Page Objects / локаторов без ручного наведения"
+}
